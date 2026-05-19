@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우리들의 날 - 유치원 일과 계획표</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&display=swap" rel="stylesheet">
+    <!-- React & Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Framer Motion -->
+    <script src="https://unpkg.com/framer-motion@10.16.4/dist/framer-motion.js"></script>
+    <style>
+        body {
+            font-family: 'Gaegu', cursive, sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+            background-color: #FDFCF0;
+        }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+        input::placeholder { color: #A1887F; opacity: 0.5; }
+        
+        /* 텍스트 가독성을 위한 전역 베이스 폰트 사이즈 조정 */
+        html { font-size: 18px; }
+        @media (min-width: 768px) { html { font-size: 20px; } }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useRef, useEffect } = React;
+        const { motion, AnimatePresence } = window.Motion;
+
+        const INITIAL_SCHEDULE = [
+            { id: 'free-play', label: '자유놀이', icon: '⭐', color: '#FFE4E8' },
+            { id: 'morning-meet', label: '아침모임', icon: '❤️', color: '#FFF9C4' },
+            { id: 'playground', label: '운동장놀이', icon: '🏃', color: '#E8F5E9' },
+            { id: 'fairytale', label: '동화책 읽기', icon: '📖', color: '#E1F5FE' },
+            { id: 'singing', label: '노래부르기', icon: '🎵', color: '#F3E5F5' },
+            { id: 'sand-play', label: '모래놀이터', icon: '🏖️', color: '#FFF3E0' },
+            { id: 'play-room', label: '놀이실', icon: '🧸', color: '#FCE4EC' },
+            { id: 'gym', label: '강당놀이', icon: '🧒', color: '#F1F8E9' },
+            { id: 'art', label: '미술놀이', icon: '🎨', color: '#FFF8E1' },
+            { id: 'gymnastics', label: '체조', icon: '🙆', color: '#E0F7FA' },
+            { id: 'lunch', label: '점심식사', icon: '🍚', color: '#F9FBE7' },
+        ];
+
+        const PASTEL_COLORS = ['#FFE4E8', '#FFF9C4', '#E8F5E9', '#E1F5FE', '#F3E5F5', '#FFF3E0'];
+
+        function App() {
+            const [availableItems, setAvailableItems] = useState(INITIAL_SCHEDULE);
+            const [plannedItems, setPlannedItems] = useState([]);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [newItemLabel, setNewItemLabel] = useState('');
+            const [newItemColor, setNewItemColor] = useState(PASTEL_COLORS[0]);
+            
+            const dropZoneRef = useRef(null);
+
+            const handleReset = () => {
+                setPlannedItems([]);
+                setAvailableItems(INITIAL_SCHEDULE);
+            };
+
+            const addNewItem = () => {
+                if (!newItemLabel.trim()) return;
+                const newItem = {
+                    id: `custom-${Date.now()}`,
+                    label: newItemLabel,
+                    icon: '✨',
+                    color: newItemColor
+                };
+                setAvailableItems([...availableItems, newItem]);
+                setNewItemLabel('');
+                setIsModalOpen(false);
+            };
+
+            const handleDragEnd = (event, info, item, index = null) => {
+                const dropZone = dropZoneRef.current?.getBoundingClientRect();
+                if (!dropZone) return;
+
+                const { clientX, clientY } = event.type && event.type.includes('touch') ? event.changedTouches[0] : event;
+
+                const isInDropZone =
+                    clientX >= dropZone.left &&
+                    clientX <= dropZone.right &&
+                    clientY >= dropZone.top &&
+                    clientY <= dropZone.bottom;
+
+                if (index === null) {
+                    if (isInDropZone) {
+                        setPlannedItems(prev => [...prev, { ...item, instanceId: Date.now() }]);
+                        setAvailableItems(prev => prev.filter(i => i.id !== item.id));
+                    }
+                } else {
+                    if (!isInDropZone) {
+                        const itemToRestore = plannedItems[index];
+                        setPlannedItems(prev => prev.filter((_, i) => i !== index));
+                        setAvailableItems(prev => {
+                            const combined = [...prev, itemToRestore];
+                            return combined.sort((a, b) => {
+                                const indexA = INITIAL_SCHEDULE.findIndex(x => x.id === a.id);
+                                const indexB = INITIAL_SCHEDULE.findIndex(x => x.id === b.id);
+                                if (indexA === -1 && indexB === -1) return 0;
+                                if (indexA === -1) return 1;
+                                if (indexB === -1) return -1;
+                                return indexA - indexB;
+                            });
+                        });
+                    }
+                }
+            };
+
+            return (
+                <div className="min-h-screen w-full overflow-hidden bg-[#FDFCF0] text-[#795548]">
+                    {/* 배경 수채화 */}
+                    <div className="fixed top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
+                        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-[#FFE4E8] blur-[120px] opacity-60"></div>
+                        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-[#E1F5FE] blur-[150px] opacity-60"></div>
+                        <div className="absolute top-[40%] left-[30%] w-[20%] h-[20%] rounded-full bg-[#FFF9C4] blur-[100px] opacity-40"></div>
+                    </div>
+
+                    <header className="relative z-10 pt-8 pb-4 text-center flex flex-col items-center">
+                        <div className="flex items-center gap-6">
+                            <motion.h1 
+                                initial={{ y: -20, opacity: 0 }}
+                                animate={{ y: 0, opacity: 1 }}
+                                className="text-5xl md:text-6xl font-black text-[#5D4037] drop-shadow-sm"
+                            >
+                                🌻 우리들의 날 🌻
+                            </motion.h1>
+                            <motion.button
+                                whileHover={{ rotate: 180, scale: 1.1 }}
+                                whileTap={{ scale: 0.9 }}
+                                onClick={handleReset}
+                                className="w-14 h-14 bg-white/80 rounded-full shadow-md flex items-center justify-center text-3xl border-2 border-[#FFE4E8]"
+                            >
+                                🔄
+                            </motion.button>
+                        </div>
+                    </header>
+
+                    <main className="relative z-10 flex flex-col md:flex-row h-[calc(100vh-160px)] gap-6 p-4 md:p-10 pt-0">
+                        {/* 왼쪽 목록: 유치원 하루일과 */}
+                        <section className="w-full md:w-5/12 lg:w-4/12 bg-white/40 backdrop-blur-md rounded-[50px] p-6 shadow-sm border-[4px] border-white/80 flex flex-col min-h-[350px]">
+                            <h2 className="text-2xl font-black mb-4 flex items-center gap-2 text-[#6D4C41]">🏡 유치원 하루일과</h2>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto pr-1 pb-4 scrollbar-hide">
+                                <AnimatePresence>
+                                    {availableItems.map((item) => (
+                                        <motion.div
+                                            key={item.id}
+                                            layout
+                                            initial={{ opacity: 0, scale: 0.8 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0, scale: 0.5 }}
+                                            drag
+                                            dragSnapToOrigin
+                                            onDragEnd={(e, info) => handleDragEnd(e, info, item)}
+                                            className="flex flex-col items-center justify-center min-h-[120px] p-2 rounded-[30px] cursor-grab active:cursor-grabbing border-[4px] border-white transition-all relative overflow-hidden shadow-sm"
+                                            style={{ backgroundColor: item.color }}
+                                        >
+                                            <span className="text-4xl mb-1 z-10" style={{ filter: 'drop-shadow(0 0 4px white)' }}>{item.icon}</span>
+                                            <span className="text-[17px] font-bold z-10 text-center leading-tight break-keep">{item.label}</span>
+                                        </motion.div>
+                                    ))}
+                                </AnimatePresence>
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    onClick={() => setIsModalOpen(true)}
+                                    className="flex flex-col items-center justify-center min-h-[120px] p-2 rounded-[30px] border-[4px] border-dashed border-[#A1887F]/40 bg-white/20 text-[#A1887F]/60"
+                                >
+                                    <span className="text-3xl mb-1">+</span>
+                                    <span className="text-base font-bold">새 일과</span>
+                                </motion.button>
+                            </div>
+                        </section>
+
+                        {/* 오른쪽 영역: 우리가 선택한 오늘 */}
+                        <section ref={dropZoneRef} className="w-full md:w-7/12 lg:w-8/12 bg-white/30 backdrop-blur-sm rounded-[70px] p-8 border-[6px] border-dashed border-white/60 flex flex-col items-center relative overflow-hidden">
+                            <div className="absolute top-6 left-12 text-2xl font-black text-[#5D4037] opacity-60">🌈 우리가 선택한 오늘</div>
+                            <div className="mt-12 w-full grid grid-cols-1 sm:grid-cols-2 gap-4 overflow-y-auto scrollbar-hide pb-28 content-start">
+                                <AnimatePresence mode="popLayout">
+                                    {plannedItems.length === 0 ? (
+                                        <div className="col-span-full flex flex-col items-center justify-center opacity-40 mt-16">
+                                            <div className="w-24 h-24 rounded-[45px] border-[4px] border-dashed border-[#A1887F]/40 flex items-center justify-center text-5xl">✨</div>
+                                            <p className="mt-6 font-bold text-2xl">여기로 그림을 옮겨주세요!</p>
+                                        </div>
+                                    ) : (
+                                        plannedItems.map((item, index) => (
+                                            <motion.div
+                                                key={item.instanceId}
+                                                layout
+                                                initial={{ opacity: 0, scale: 0.8 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                drag
+                                                dragSnapToOrigin
+                                                onDragEnd={(e, info) => handleDragEnd(e, info, item, index)}
+                                                className="w-full"
+                                            >
+                                                <div className="relative z-10 w-full h-20 rounded-[35px] shadow-sm flex items-center p-4 border-[4px] border-white transition-all overflow-hidden" style={{ backgroundColor: item.color }}>
+                                                    <div className="bg-white/80 h-8 w-8 rounded-[12px] flex items-center justify-center text-lg font-black mr-4 text-[#8D6E63] shrink-0 shadow-sm">{index + 1}</div>
+                                                    <div className="text-4xl mr-4 shrink-0" style={{ filter: 'drop-shadow(0 0 4px white)' }}>{item.icon}</div>
+                                                    <div className="text-xl font-bold leading-tight break-keep truncate">{item.label}</div>
+                                                </div>
+                                            </motion.div>
+                                        ))
+                                    )}
+                                </AnimatePresence>
+                            </div>
+                        </section>
+                    </main>
+
+                    {/* 모달 */}
+                    <AnimatePresence>
+                        {isModalOpen && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setIsModalOpen(false)} className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+                                <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }} className="relative z-10 bg-white rounded-[50px] p-10 shadow-2xl w-full max-md border-[8px] border-[#FFE4E8]">
+                                    <h3 className="text-3xl font-black mb-6 text-center text-[#5D4037]">새로운 일과를 적어요!</h3>
+                                    <input autoFocus type="text" value={newItemLabel} onChange={(e) => setNewItemLabel(e.target.value)} placeholder="예: 간식 시간" className="w-full px-8 py-4 rounded-full bg-[#FDFCF0] border-3 border-[#FFE4E8] text-2xl font-bold mb-6 focus:outline-none focus:ring-2 focus:ring-[#FFD1D9]" onKeyPress={(e) => e.key === 'Enter' && addNewItem()} />
+                                    <div className="flex justify-between gap-3 mb-8">
+                                        {PASTEL_COLORS.map(color => (
+                                            <button key={color} onClick={() => setNewItemColor(color)} className={`w-12 h-12 rounded-full border-4 ${newItemColor === color ? 'border-[#8D6E63]' : 'border-white'} shadow-sm transition-transform hover:scale-110`} style={{ backgroundColor: color }} />
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-4">
+                                        <button onClick={() => setIsModalOpen(false)} className="flex-1 py-4 rounded-full bg-gray-100 font-bold text-xl text-[#8D6E63]">닫기</button>
+                                        <button onClick={addNewItem} className="flex-1 py-4 rounded-full bg-[#FFE4E8] font-bold text-xl text-[#5D4037] shadow-md hover:bg-[#FFD1D9]">추가하기</button>
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
